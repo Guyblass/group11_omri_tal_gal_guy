@@ -106,9 +106,9 @@ register_llm_template(
     PromptTemplate(
         name="falcon",
         system_template=">>INTRODUCTION<< {system_message}",
-        system_message="You are a helpful assistant, with financial expertise.",
+        system_message="You are a helpful assistant, with financial expertise. Answer the question below, using the given domain that contains the user info and the best article to use.",
         context_template=">>DOMAIN<< {user_context}\n{news_context}",
-        chat_history_template=">>SUMMARY<< {chat_history}",
+        chat_history_template="",
         question_template=">>QUESTION<< {question}",
         answer_template=">>ANSWER<< {answer}",
         sep="\n",
