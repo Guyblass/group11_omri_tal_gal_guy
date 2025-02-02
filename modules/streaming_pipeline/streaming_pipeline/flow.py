@@ -45,7 +45,7 @@ def build(
     flow.input(
         "input",
         _build_input(
-            is_batch, from_datetime, to_datetime, is_input_mocked=is_input_mocked
+            is_batch, from_datetime, to_datetime, is_input_mocked=is_input_mocked, exclude_contentless=True
         ),
     )
     flow.flat_map(lambda messages: parse_obj_as(List[NewsArticle], messages))
@@ -64,6 +64,7 @@ def _build_input(
     from_datetime: Optional[datetime.datetime] = None,
     to_datetime: Optional[datetime.datetime] = None,
     is_input_mocked: bool = False,
+    exclude_contentless: bool = False
 ) -> Input:
     if is_input_mocked is True:
         return TestingInput(mocked.financial_news)
@@ -74,7 +75,7 @@ def _build_input(
         ), "from_datetime and to_datetime must be provided when is_batch is True"
 
         return AlpacaNewsBatchInput(
-            from_datetime=from_datetime, to_datetime=to_datetime, tickers=["*"]
+            from_datetime=from_datetime, to_datetime=to_datetime, tickers=["*"], exclude_contentless=exclude_contentless
         )
     else:
         return AlpacaNewsStreamInput(tickers=["*"])

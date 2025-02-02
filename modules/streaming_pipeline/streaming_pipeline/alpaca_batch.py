@@ -26,10 +26,12 @@ class AlpacaNewsBatchInput(DynamicInput):
         tickers: List[str],
         from_datetime: datetime.datetime,
         to_datetime: datetime.datetime,
+        exclude_contentless: bool
     ):
         self._tickers = tickers
         self._from_datetime = from_datetime
         self._to_datetime = to_datetime
+        self._exclude_contentless = exclude_contentless
 
     def build(self, worker_index, worker_count):
         # Distribute different time ranges to different workers,
@@ -50,6 +52,7 @@ class AlpacaNewsBatchInput(DynamicInput):
             tickers=self._tickers,
             from_datetime=worker_from_datetime,
             to_datetime=worker_to_datetime,
+            exclude_contentless=self._exclude_contentless
         )
 
 
@@ -68,9 +71,10 @@ class AlpacaNewsBatchSource(StatelessSource):
         tickers: List[str],
         from_datetime: datetime.datetime,
         to_datetime: datetime.datetime,
+        exclude_contentless: bool,
     ):
         self._alpaca_client = build_alpaca_client(
-            from_datetime=from_datetime, to_datetime=to_datetime, tickers=tickers
+            from_datetime=from_datetime, to_datetime=to_datetime, tickers=tickers, exclude_contentless=exclude_contentless
         )
 
     def next(self):
@@ -102,6 +106,7 @@ def build_alpaca_client(
     api_key: Optional[str] = None,
     api_secret: Optional[str] = None,
     tickers: Optional[List[str]] = None,
+    exclude_contentless: bool = False,
 ) -> "AlpacaNewsBatchClient":
     """
     Builds an AlpacaNewsBatchClient object with the specified parameters.
@@ -145,6 +150,7 @@ def build_alpaca_client(
         api_key=api_key,
         api_secret=api_secret,
         tickers=tickers,
+        exclude_contentless=exclude_contentless
     )
 
 
@@ -172,6 +178,7 @@ class AlpacaNewsBatchClient:
         api_key: str,
         api_secret: str,
         tickers: List[str],
+        exclude_contentless: bool,
     ):
         """
         Initializes a new instance of the AlpacaNewsBatchClient class.
@@ -189,6 +196,7 @@ class AlpacaNewsBatchClient:
         self._api_key = api_key
         self._api_secret = api_secret
         self._tickers = tickers
+        self._exclude_contentless = exclude_contentless
 
         self._page_token = None
         self._first_request = True
@@ -231,6 +239,7 @@ class AlpacaNewsBatchClient:
             "limit": 50,
             "include_content": True,
             "sort": "ASC",
+            "exclude_contentless": self._exclude_contentless,
         }
         if self._page_token is not None:
             params["page_token"] = self._page_token
