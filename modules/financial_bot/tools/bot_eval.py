@@ -49,22 +49,19 @@ def run_local(
     from ragas.metrics import (
         answer_correctness,
         answer_similarity,
-        #context_entity_recall,
-        context_recall,
-        #context_relevancy,
-        #context_utilization,
-        faithfulness
+        answer_relevancy,
     )
     from ragas.metrics.context_precision import context_relevancy
     metrics = [
-        #context_utilization,
-        context_relevancy,
-        context_recall,
+        answer_correctness,
         answer_similarity,
-        #context_entity_recall,
-        #answer_correctness,
-        faithfulness
+        answer_relevancy,
     ]
+
+    num_of_tests = 0
+    answer_correctness = 0
+    answer_similarity = 0
+    answer_relevancy = 0
 
     with open(testset_path, "r") as f:
         data = json.load(f)
@@ -72,11 +69,23 @@ def run_local(
             input_payload = {
                 "about_me": elem["about_me"],
                 "question": elem["question"],
-                "to_load_history": [],
             }
             output_context = bot.finbot_chain.chains[0].run(input_payload)
             response = bot.answer(**input_payload)
-            logger.info("Score=%s", evaluate_w_ragas(query=elem["question"], context=output_context.split('\n'), output=response, ground_truth=elem["response"], metrics=metrics))
+            logger.info("Question: %s", elem["question"])
+            logger.info("Context: %s", [output_context])
+            logger.info("Response: %s", response)
+            score = evaluate_w_ragas(query=elem["question"], context=[output_context], output=response, ground_truth=elem["response"], metrics=metrics)
+            logger.info("Score=%s", score)
+            num_of_tests += 1
+            answer_correctness += score["answer_correctness"]
+            answer_similarity += score["answer_similarity"]
+            answer_relevancy += score["answer_relevancy"]
+
+
+    logger.info("answer_correctness:%s", str(answer_correctness/num_of_tests))
+    logger.info("answer_similarity:%s", str(answer_similarity/num_of_tests))
+    logger.info("answer_relevancy:%s", str(answer_relevancy/num_of_tests))
 
     return response
 
