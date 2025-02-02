@@ -2,6 +2,8 @@ import hashlib
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+import transformers.pipelines
+import copy
 from pydantic import BaseModel
 from unstructured.cleaners.core import (
     clean,
@@ -111,7 +113,7 @@ class Document(BaseModel):
         payloads = []
         ids = []
         for chunk in self.chunks:
-            payload = self.metadata
+            payload = copy.deepcopy(self.metadata)
             payload.update({"text": chunk})
             # Create the chunk ID using the hash of the chunk to avoid storing duplicates.
             chunk_id = hashlib.md5(chunk.encode()).hexdigest()
@@ -120,6 +122,24 @@ class Document(BaseModel):
             ids.append(chunk_id)
 
         return ids, payloads
+
+    def compute_header_buffer(self, tokenizer, header: str) -> int:
+        """
+        Computes the header buffer for the CCH.
+
+        Args:
+            header (str): The header of the document.
+
+        Returns:
+            int: The length of the header buffer.
+        """
+        split_text=  header.split() # split by space or new line
+
+        num_tokens = 0
+        for segment in split_text:
+            tokens = tokenizer.tokenize(segment)
+            num_tokens += len(tokens)
+        return num_tokens
 
     def compute_chunks(self, model: EmbeddingModelSingleton) -> "Document":
         """
@@ -132,12 +152,20 @@ class Document(BaseModel):
             Document: The document object with the computed chunks.
         """
 
-        for item in self.text:
-            chunked_item = chunk_by_attention_window(
-                item, model.tokenizer, max_input_size=model.max_input_length
-            )
+        # Chunk the content by attention window
+        headline, summary, content = self.text
+        header = f"Headline: {headline}\n\nSummary: {summary}\n\n"
 
-            self.chunks.extend(chunked_item)
+        # buffer for the CCH headers
+        cch_header_buffer = self.compute_header_buffer(model.tokenizer, header)
+        max_input_size = model.max_input_length - cch_header_buffer
+
+        chunks = chunk_by_attention_window(content, model.tokenizer, max_input_size=max_input_size)
+
+        for chunk in chunks:
+            # Adding headers to the chunks
+            headered_chunk = f"{header}\n\nContent: {chunk}"
+            self.chunks.append(headered_chunk)
 
         return self
 
@@ -156,5 +184,16 @@ class Document(BaseModel):
             embedding = model(chunk, to_list=True)
 
             self.embeddings.append(embedding)
+
+        return self
+
+    def summarize(self, summarizer: transformers.pipelines.Pipeline) -> "Document":
+        text = self.text[2]
+        response = summarizer(text, max_length=200, min_length=0, do_sample=False)
+        summary = response[0]["summary_text"]
+
+        # Update the document with the summary
+        self.text[1] = summary
+        self.metadata["summary"] = summary
 
         return self

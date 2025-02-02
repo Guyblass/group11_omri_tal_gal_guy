@@ -16,6 +16,7 @@ from streaming_pipeline.embeddings import EmbeddingModelSingleton
 from streaming_pipeline.models import NewsArticle
 from streaming_pipeline.qdrant import QdrantVectorOutput
 
+from transformers import pipeline
 
 def build(
     is_batch: bool = False,
@@ -41,6 +42,8 @@ def build(
     model = EmbeddingModelSingleton(cache_dir=model_cache_dir)
     is_input_mocked = debug is True and is_batch is False
 
+    summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+
     flow = Dataflow()
     flow.input(
         "input",
@@ -52,6 +55,7 @@ def build(
     if debug:
         flow.inspect(print)
     flow.map(lambda article: article.to_document())
+    flow.map(lambda document: document.summarize(summarizer))
     flow.map(lambda document: document.compute_chunks(model))
     flow.map(lambda document: document.compute_embeddings(model))
     flow.output("output", _build_output(model, in_memory=debug))
