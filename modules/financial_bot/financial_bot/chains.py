@@ -95,7 +95,7 @@ class ContextExtractorChain(Chain):
         The name of the collection to search in the vector store.
     """
 
-    top_k: int = 1
+    top_k: int = 1  # Change this for more context
     embedding_model: EmbeddingModelSingleton
     vector_store: qdrant_client.QdrantClient
     vector_collection: str
@@ -122,13 +122,14 @@ class ContextExtractorChain(Chain):
         # (or other time frame).
         matches = self.vector_store.search(
             query_vector=embeddings,
-            k=self.top_k,
+            limit=self.top_k,
             collection_name=self.vector_collection,
+            # score_threshold=0.8
         )
 
         context = ""
         for match in matches:
-            context += match.payload["summary"] + "\n"
+            context += match.payload["text"] + "\n"
 
         return {
             "context": context,
